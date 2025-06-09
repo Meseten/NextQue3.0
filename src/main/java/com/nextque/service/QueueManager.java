@@ -5,16 +5,20 @@ import com.nextque.model.ServiceType;
 import com.nextque.model.Ticket;
 import com.nextque.model.User;
 
+import javax.swing.Timer;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.PriorityQueue;
 import java.util.Queue;
+import java.util.Set;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,6 +30,7 @@ public class QueueManager {
     private final List<QueueUpdateListener> listeners;
     private FeedbackPromptListener feedbackListener;
     private final DatabaseManager dbManager;
+    private Timer pollingTimer;
 
     public QueueManager(DatabaseManager dbManager) {
         if (dbManager == null) {
@@ -40,6 +45,7 @@ public class QueueManager {
         Ticket.initializeCounter(lastTicketNumber);
 
         loadServicesAndTickets();
+        startDatabasePolling();
     }
     
     private void loadServicesAndTickets() {
@@ -70,6 +76,92 @@ public class QueueManager {
         }
         LOGGER.info("Loaded {} pending tickets into active queues.", pendingCount);
     }
+
+    private void startDatabasePolling() {
+        pollingTimer = new Timer(5000, e -> syncWithDatabase());
+        pollingTimer.setInitialDelay(5000);
+        pollingTimer.start();
+        LOGGER.info("Database polling started. Will sync with DB every 5 seconds.");
+    }
+
+    private synchronized void syncWithDatabase() {
+        LOGGER.debug("Executing database sync...");
+        boolean changed = false;
+
+        List<ServiceType> dbServiceTypes = dbManager.getAllServiceTypes();
+        Set<ServiceType> dbServiceTypesSet = new HashSet<>(dbServiceTypes);
+        Set<ServiceType> memoryServiceTypesSet = serviceQueues.keySet();
+
+        for (ServiceType dbType : dbServiceTypes) {
+            if (!memoryServiceTypesSet.contains(dbType)) {
+                serviceQueues.put(dbType, new PriorityQueue<>());
+                LOGGER.info("DB Sync: Added new service type '{}'", dbType.getName());
+                changed = true;
+            }
+        }
+
+        Iterator<ServiceType> memoryIterator = serviceQueues.keySet().iterator();
+        while(memoryIterator.hasNext()){
+            ServiceType memType = memoryIterator.next();
+            if(!dbServiceTypesSet.contains(memType)){
+                memoryIterator.remove();
+                LOGGER.info("DB Sync: Removed service type '{}'", memType.getName());
+                changed = true;
+            }
+        }
+
+        List<Ticket> dbWaitingTickets = dbManager.getAllTicketsWithResolvedServiceTypes().stream()
+                                                .filter(t -> t.getStatus() == Ticket.TicketStatus.WAITING)
+                                                .collect(Collectors.toList());
+
+        Set<String> dbTicketNumbers = dbWaitingTickets.stream()
+                                                      .map(Ticket::getTicketNumber)
+                                                      .collect(Collectors.toSet());
+
+        List<Ticket> memoryWaitingTickets = serviceQueues.values().stream()
+                                                         .flatMap(Queue::stream)
+                                                         .collect(Collectors.toList());
+
+        Set<String> memoryTicketNumbers = memoryWaitingTickets.stream()
+                                                             .map(Ticket::getTicketNumber)
+                                                             .collect(Collectors.toSet());
+
+        for (Ticket dbTicket : dbWaitingTickets) {
+            if (!memoryTicketNumbers.contains(dbTicket.getTicketNumber())) {
+                PriorityQueue<Ticket> queue = serviceQueues.get(dbTicket.getServiceType());
+                if (queue != null) {
+                    queue.add(dbTicket);
+                    LOGGER.info("DB Sync: Added new waiting ticket {}", dbTicket.getTicketNumber());
+                    changed = true;
+                }
+            }
+        }
+
+        List<Ticket> ticketsToRemoveFromMemory = new ArrayList<>();
+        for (Ticket memTicket : memoryWaitingTickets) {
+            if (!dbTicketNumbers.contains(memTicket.getTicketNumber())) {
+                ticketsToRemoveFromMemory.add(memTicket);
+            }
+        }
+
+        if (!ticketsToRemoveFromMemory.isEmpty()) {
+            for (Ticket toRemove : ticketsToRemoveFromMemory) {
+                PriorityQueue<Ticket> queue = serviceQueues.get(toRemove.getServiceType());
+                if (queue != null && queue.remove(toRemove)) {
+                     LOGGER.info("DB Sync: Removed ticket {} from queue.", toRemove.getTicketNumber());
+                     changed = true;
+                }
+            }
+        }
+
+        if (changed) {
+            LOGGER.info("Database sync detected changes. Notifying listeners.");
+            notifyListeners();
+        } else {
+            LOGGER.debug("DB Sync: No changes detected.");
+        }
+    }
+
 
     public void addQueueUpdateListener(QueueUpdateListener listener) {
         if (listener != null && !listeners.contains(listener)) {

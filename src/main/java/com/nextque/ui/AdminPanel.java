@@ -1,4 +1,3 @@
-// Filename: AdminPanel.java
 package com.nextque.ui;
 
 import com.nextque.db.DatabaseManager;
@@ -22,31 +21,22 @@ import java.util.regex.Pattern;
 public class AdminPanel extends JPanel implements QueueManager.QueueUpdateListener {
     private final DatabaseManager dbManager;
     private final QueueManager queueManager;
-
     private JTabbedPane adminTabbedPane;
-
-    // Tickets Tab
     private JTable ticketsTable;
     private DefaultTableModel ticketsTableModel;
     private JTextField ticketSearchField;
     private JButton changeTicketPriorityButton;
-
-    // Feedback Tab
     private JTable feedbackTable;
     private DefaultTableModel feedbackTableModel;
     private JTextField feedbackSearchField;
-
-    // Services Tab
     private JList<ServiceType> serviceTypeList;
     private DefaultListModel<ServiceType> serviceListModel;
     private JButton addServiceButton, editServiceButton, removeServiceButton;
-
 
     public AdminPanel(DatabaseManager dbManager, QueueManager queueManager) {
         this.dbManager = dbManager;
         this.queueManager = queueManager;
         this.queueManager.addQueueUpdateListener(this);
-
         setLayout(new BorderLayout(10,10));
         setBorder(UITheme.BORDER_PANEL_PADDING);
         setBackground(UITheme.COLOR_BACKGROUND_MAIN);
@@ -58,370 +48,213 @@ public class AdminPanel extends JPanel implements QueueManager.QueueUpdateListen
         adminTabbedPane = new JTabbedPane();
         adminTabbedPane.setTabPlacement(JTabbedPane.TOP);
         adminTabbedPane.setFont(UITheme.FONT_GENERAL_BOLD);
-        adminTabbedPane.setBackground(UITheme.COLOR_BACKGROUND_MAIN);
-        adminTabbedPane.setForeground(UITheme.COLOR_TEXT_DARK);
+        
+        adminTabbedPane.addTab("All Tickets", UITheme.getIcon("tab_tickets.svg"), createTicketsPanel());
+        adminTabbedPane.addTab("Customer Feedback", UITheme.getIcon("tab_feedback.svg"), createFeedbackPanel());
+        adminTabbedPane.addTab("Manage Services", UITheme.getIcon("tab_services.svg"), createServicesPanel());
 
+        add(adminTabbedPane, BorderLayout.CENTER);
+    }
 
-        Font searchLabelFont = UITheme.FONT_LABEL;
-        Font tableHeaderFont = UITheme.FONT_TABLE_HEADER;
-        Font tableCellFont = UITheme.FONT_TABLE_CELL;
+    private JPanel createTicketsPanel() {
+        JPanel panel = new CardPanel(new BorderLayout(10, 10));
+        panel.setBorder(UITheme.BORDER_SECTION_PADDING);
 
-        // --- Tickets Tab ---
-        JPanel ticketsPanel = new JPanel(new BorderLayout(10, 10));
-        ticketsPanel.setBorder(UITheme.BORDER_SECTION_PADDING);
-        ticketsPanel.setBackground(UITheme.COLOR_BACKGROUND_PANEL);
-        ticketsPanel.putClientProperty(com.formdev.flatlaf.FlatClientProperties.STYLE, "arc: 10");
-
-        // Added "Priority Reason" column
         ticketsTableModel = new DefaultTableModel(
-            new String[]{"Ticket No", "Service", "Customer", "Priority Reason", "Issued", "Called", "Svc Start", "Svc End", "Status", "Agent", "Num. Pri"}, 0){
+            new String[]{"Ticket No", "Service", "Customer", "Priority", "Issued", "Status", "Agent"}, 0){
             @Override public boolean isCellEditable(int row, int column) { return false; }
         };
         ticketsTable = new JTable(ticketsTableModel);
-        ticketsTable.setFillsViewportHeight(true);
-        ticketsTable.setAutoCreateRowSorter(true);
-        ticketsTable.getTableHeader().setFont(tableHeaderFont);
-        // Ensure UITheme.COLOR_PRIMARY_MEDIUM is defined and initialized in UITheme.java
-        ticketsTable.getTableHeader().setBackground(UITheme.COLOR_PRIMARY_MEDIUM);
-        ticketsTable.getTableHeader().setForeground(UITheme.COLOR_TEXT_ON_PRIMARY);
-        ticketsTable.setFont(tableCellFont);
-        ticketsTable.setRowHeight(24);
-        ticketsTable.setGridColor(UITheme.COLOR_BORDER);
-        ticketsTable.setShowVerticalLines(false);
-        ticketsTable.setIntercellSpacing(new Dimension(0, 1));
-        ticketsTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION); // Allow selecting one ticket
-
-
-        TableColumnModel tcmTickets = ticketsTable.getColumnModel();
-        tcmTickets.getColumn(0).setPreferredWidth(110); // Ticket No
-        tcmTickets.getColumn(1).setPreferredWidth(140); // Service
-        tcmTickets.getColumn(2).setPreferredWidth(130); // Customer
-        tcmTickets.getColumn(3).setPreferredWidth(130); // Priority Reason (New)
-        tcmTickets.getColumn(4).setPreferredWidth(70);  // Issued
-        tcmTickets.getColumn(5).setPreferredWidth(70);  // Called
-        tcmTickets.getColumn(6).setPreferredWidth(70);  // Svc Start
-        tcmTickets.getColumn(7).setPreferredWidth(70);  // Svc End
-        tcmTickets.getColumn(8).setPreferredWidth(90);  // Status
-        tcmTickets.getColumn(9).setPreferredWidth(90); // Agent
-        tcmTickets.getColumn(10).setPreferredWidth(60);  // Num. Pri
-
+        setupTableStyles(ticketsTable);
+        
+        TableColumnModel tcm = ticketsTable.getColumnModel();
+        tcm.getColumn(0).setPreferredWidth(110);
+        tcm.getColumn(1).setPreferredWidth(140);
+        tcm.getColumn(2).setPreferredWidth(130);
+        tcm.getColumn(3).setPreferredWidth(130);
+        tcm.getColumn(4).setPreferredWidth(70);
+        tcm.getColumn(5).setPreferredWidth(90);
+        tcm.getColumn(6).setPreferredWidth(90);
 
         ticketSearchField = new JTextField(25);
         ticketSearchField.setFont(UITheme.FONT_INPUT);
         ticketSearchField.putClientProperty(com.formdev.flatlaf.FlatClientProperties.PLACEHOLDER_TEXT, "Search tickets...");
-        JButton ticketSearchButton = new JButton("Search");
-        UITheme.styleSecondaryButton(ticketSearchButton);
-        ticketSearchButton.setIcon(UITheme.getIcon("search.svg")); // Ensure icon exists
-        ticketSearchButton.addActionListener(this::filterTicketsTable);
-        ticketSearchField.addActionListener(this::filterTicketsTable);
+        JButton searchBtn = new JButton("Search", UITheme.getIcon("search.svg"));
+        UITheme.styleSecondaryButton(searchBtn);
 
-        changeTicketPriorityButton = new JButton("Set Priority");
+        changeTicketPriorityButton = new JButton("Set Priority", UITheme.getIcon("priority_star.svg"));
         UITheme.styleInfoButton(changeTicketPriorityButton);
-        changeTicketPriorityButton.setIcon(UITheme.getIcon("priority_star.svg")); // Ensure icon exists
-        changeTicketPriorityButton.setEnabled(false); // Enabled when a WAITING ticket is selected
+        changeTicketPriorityButton.setEnabled(false);
+
+        JPanel topPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 5));
+        topPanel.setOpaque(false);
+        topPanel.add(new JLabel("Filter:"));
+        topPanel.add(ticketSearchField);
+        topPanel.add(searchBtn);
+        topPanel.add(Box.createHorizontalStrut(10));
+        topPanel.add(changeTicketPriorityButton);
+
+        panel.add(topPanel, BorderLayout.NORTH);
+        panel.add(new JScrollPane(ticketsTable), BorderLayout.CENTER);
+        
+        searchBtn.addActionListener(this::filterTicketsTable);
+        ticketSearchField.addActionListener(this::filterTicketsTable);
         changeTicketPriorityButton.addActionListener(this::changeSelectedTicketPriority);
+        ticketsTable.getSelectionModel().addListSelectionListener(e -> updateTicketButtonState());
+        
+        return panel;
+    }
 
-        ticketsTable.getSelectionModel().addListSelectionListener(e -> {
-            if (!e.getValueIsAdjusting()) {
-                int selectedRow = ticketsTable.getSelectedRow();
-                if (selectedRow != -1) {
-                    int modelRow = ticketsTable.convertRowIndexToModel(selectedRow);
-                    String status = ticketsTableModel.getValueAt(modelRow, 8).toString(); // Status column
-                    changeTicketPriorityButton.setEnabled(Ticket.TicketStatus.WAITING.name().equals(status));
-                } else {
-                    changeTicketPriorityButton.setEnabled(false);
-                }
-            }
-        });
-
-
-        JPanel ticketSearchPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 5));
-        ticketSearchPanel.setOpaque(false);
-        JLabel ticketSearchLabel = new JLabel("Filter:");
-        ticketSearchLabel.setFont(searchLabelFont);
-        ticketSearchPanel.add(ticketSearchLabel);
-        ticketSearchPanel.add(ticketSearchField);
-        ticketSearchPanel.add(ticketSearchButton);
-        ticketSearchPanel.add(Box.createHorizontalStrut(10)); // Spacer
-        ticketSearchPanel.add(changeTicketPriorityButton);
-
-        ticketsPanel.add(ticketSearchPanel, BorderLayout.NORTH);
-        JScrollPane ticketScrollPane = new JScrollPane(ticketsTable);
-        ticketScrollPane.setBorder(BorderFactory.createLineBorder(UITheme.COLOR_BORDER));
-        ticketScrollPane.getViewport().setBackground(UITheme.COLOR_BACKGROUND_PANEL);
-        ticketsPanel.add(ticketScrollPane, BorderLayout.CENTER);
-        adminTabbedPane.addTab("All Tickets", UITheme.getIcon("tab_tickets.svg"), ticketsPanel); // Ensure icon exists
-
-        // --- Feedback Tab ---
-        JPanel feedbackPanel = new JPanel(new BorderLayout(10, 10));
-        feedbackPanel.setBorder(UITheme.BORDER_SECTION_PADDING);
-        feedbackPanel.setBackground(UITheme.COLOR_BACKGROUND_PANEL);
-        feedbackPanel.putClientProperty(com.formdev.flatlaf.FlatClientProperties.STYLE, "arc: 10");
+    private JPanel createFeedbackPanel() {
+        JPanel panel = new CardPanel(new BorderLayout(10, 10));
+        panel.setBorder(UITheme.BORDER_SECTION_PADDING);
 
         feedbackTableModel = new DefaultTableModel(new String[]{"ID", "Ticket No", "Rating", "Comments", "Submitted"}, 0){
              @Override public boolean isCellEditable(int row, int column) { return false; }
         };
         feedbackTable = new JTable(feedbackTableModel);
-        feedbackTable.setFillsViewportHeight(true);
-        feedbackTable.setAutoCreateRowSorter(true);
-        feedbackTable.getTableHeader().setFont(tableHeaderFont);
-        // Ensure UITheme.COLOR_PRIMARY_MEDIUM is defined and initialized in UITheme.java
-        feedbackTable.getTableHeader().setBackground(UITheme.COLOR_PRIMARY_MEDIUM);
-        feedbackTable.getTableHeader().setForeground(UITheme.COLOR_TEXT_ON_PRIMARY);
-        feedbackTable.setFont(tableCellFont);
-        feedbackTable.setRowHeight(24);
-        feedbackTable.setGridColor(UITheme.COLOR_BORDER);
-        feedbackTable.setShowVerticalLines(false);
-        feedbackTable.setIntercellSpacing(new Dimension(0, 1));
-
-        TableColumnModel tcmFeedback = feedbackTable.getColumnModel();
-        tcmFeedback.getColumn(0).setPreferredWidth(40);
-        tcmFeedback.getColumn(1).setPreferredWidth(120);
-        tcmFeedback.getColumn(2).setPreferredWidth(60);
-        tcmFeedback.getColumn(3).setPreferredWidth(350);
-        tcmFeedback.getColumn(4).setPreferredWidth(140);
+        setupTableStyles(feedbackTable);
         feedbackTable.getColumnModel().getColumn(3).setCellRenderer(new TextAreaCellRenderer());
+
+        TableColumnModel tcm = feedbackTable.getColumnModel();
+        tcm.getColumn(0).setMaxWidth(50);
+        tcm.getColumn(1).setPreferredWidth(120);
+        tcm.getColumn(2).setPreferredWidth(60);
+        tcm.getColumn(3).setPreferredWidth(350);
+        tcm.getColumn(4).setPreferredWidth(140);
 
         feedbackSearchField = new JTextField(25);
         feedbackSearchField.setFont(UITheme.FONT_INPUT);
         feedbackSearchField.putClientProperty(com.formdev.flatlaf.FlatClientProperties.PLACEHOLDER_TEXT, "Search feedback...");
-        JButton feedbackSearchButton = new JButton("Search");
-        UITheme.styleSecondaryButton(feedbackSearchButton);
-        feedbackSearchButton.setIcon(UITheme.getIcon("search.svg")); // Ensure icon exists
-        feedbackSearchButton.addActionListener(this::filterFeedbackTable);
+        JButton searchBtn = new JButton("Search", UITheme.getIcon("search.svg"));
+        UITheme.styleSecondaryButton(searchBtn);
+        
+        JPanel topPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 5));
+        topPanel.setOpaque(false);
+        topPanel.add(new JLabel("Filter:"));
+        topPanel.add(feedbackSearchField);
+        topPanel.add(searchBtn);
+        panel.add(topPanel, BorderLayout.NORTH);
+        panel.add(new JScrollPane(feedbackTable), BorderLayout.CENTER);
+        
+        searchBtn.addActionListener(this::filterFeedbackTable);
         feedbackSearchField.addActionListener(this::filterFeedbackTable);
 
-        JPanel feedbackSearchPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 5));
-        feedbackSearchPanel.setOpaque(false);
-        JLabel feedbackSearchLabel = new JLabel("Filter:");
-        feedbackSearchLabel.setFont(searchLabelFont);
-        feedbackSearchPanel.add(feedbackSearchLabel);
-        feedbackSearchPanel.add(feedbackSearchField);
-        feedbackSearchPanel.add(feedbackSearchButton);
-        feedbackPanel.add(feedbackSearchPanel, BorderLayout.NORTH);
-        JScrollPane feedbackScrollPane = new JScrollPane(feedbackTable);
-        feedbackScrollPane.setBorder(BorderFactory.createLineBorder(UITheme.COLOR_BORDER));
-        feedbackScrollPane.getViewport().setBackground(UITheme.COLOR_BACKGROUND_PANEL);
-        feedbackPanel.add(feedbackScrollPane, BorderLayout.CENTER);
-        adminTabbedPane.addTab("Customer Feedback", UITheme.getIcon("tab_feedback.svg"), feedbackPanel); // Ensure icon exists
-
-        // --- Service Management Tab ---
-        JPanel servicesPanel = new JPanel(new BorderLayout(10, 10));
-        servicesPanel.setBorder(UITheme.BORDER_SECTION_PADDING);
-        servicesPanel.setBackground(UITheme.COLOR_BACKGROUND_PANEL);
-        servicesPanel.putClientProperty(com.formdev.flatlaf.FlatClientProperties.STYLE, "arc: 10");
+        return panel;
+    }
+    
+    private JPanel createServicesPanel() {
+        JPanel panel = new CardPanel(new BorderLayout(10, 10));
+        panel.setBorder(UITheme.BORDER_SECTION_PADDING);
 
         serviceListModel = new DefaultListModel<>();
         serviceTypeList = new JList<>(serviceListModel);
         serviceTypeList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         serviceTypeList.setFont(UITheme.FONT_LIST_ITEM);
         serviceTypeList.setCellRenderer(new ServiceTypeListCellRenderer());
-        serviceTypeList.setBackground(UITheme.COLOR_BACKGROUND_SECTION);
-        JScrollPane serviceListScrollPane = new JScrollPane(serviceTypeList);
-        serviceListScrollPane.setBorder(BorderFactory.createLineBorder(UITheme.COLOR_BORDER));
-        servicesPanel.add(serviceListScrollPane, BorderLayout.CENTER);
-
-        JPanel serviceControlPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 5));
-        serviceControlPanel.setOpaque(false);
-        addServiceButton = new JButton("Add Service");
+        
+        JPanel controls = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 5));
+        controls.setOpaque(false);
+        addServiceButton = new JButton("Add Service", UITheme.getIcon("add_circle.svg"));
         UITheme.styleSuccessButton(addServiceButton);
-        addServiceButton.setIcon(UITheme.getIcon("add_circle.svg")); // Ensure icon exists
-        editServiceButton = new JButton("Edit Display Name");
+        editServiceButton = new JButton("Edit Name", UITheme.getIcon("edit_pencil.svg"));
         UITheme.styleInfoButton(editServiceButton);
-        editServiceButton.setIcon(UITheme.getIcon("edit_pencil.svg")); // Ensure icon exists
-        removeServiceButton = new JButton("Remove Selected");
+        removeServiceButton = new JButton("Remove", UITheme.getIcon("delete_trash.svg"));
         UITheme.styleDangerButton(removeServiceButton);
-        removeServiceButton.setIcon(UITheme.getIcon("delete_trash.svg")); // Ensure icon exists
+        controls.add(addServiceButton);
+        controls.add(editServiceButton);
+        controls.add(removeServiceButton);
 
-        serviceTypeList.addListSelectionListener(e -> {
-            if (!e.getValueIsAdjusting()) {
-                boolean selected = serviceTypeList.getSelectedIndex() != -1;
-                editServiceButton.setEnabled(selected);
-                removeServiceButton.setEnabled(selected);
-            }
-        });
-        editServiceButton.setEnabled(false);
-        removeServiceButton.setEnabled(false);
-
+        panel.add(new JScrollPane(serviceTypeList), BorderLayout.CENTER);
+        panel.add(controls, BorderLayout.SOUTH);
+        
+        serviceTypeList.addListSelectionListener(e -> updateServiceButtonState());
         addServiceButton.addActionListener(this::addServiceTypeAction);
         editServiceButton.addActionListener(this::editServiceTypeAction);
         removeServiceButton.addActionListener(this::removeServiceTypeAction);
-
-        serviceControlPanel.add(addServiceButton);
-        serviceControlPanel.add(editServiceButton);
-        serviceControlPanel.add(removeServiceButton);
-        servicesPanel.add(serviceControlPanel, BorderLayout.SOUTH);
-        adminTabbedPane.addTab("Manage Services", UITheme.getIcon("tab_services.svg"), servicesPanel); // Ensure icon exists
-
-        add(adminTabbedPane, BorderLayout.CENTER);
+        
+        updateServiceButtonState();
+        
+        return panel;
     }
 
     private void addServiceTypeAction(ActionEvent e) {
         JTextField internalNameField = new JTextField(20);
-        internalNameField.setFont(UITheme.FONT_INPUT);
         JTextField displayNameField = new JTextField(20);
-        displayNameField.setFont(UITheme.FONT_INPUT);
 
         JPanel panel = new JPanel(new GridBagLayout());
-        GridBagConstraints gbcDialog = new GridBagConstraints();
-        gbcDialog.insets = new Insets(5,5,5,5);
-        gbcDialog.fill = GridBagConstraints.HORIZONTAL;
-        gbcDialog.anchor = GridBagConstraints.WEST;
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(5,5,5,5);
+        gbc.anchor = GridBagConstraints.WEST;
 
-        gbcDialog.gridx = 0; gbcDialog.gridy = 0;
-        panel.add(new JLabel("Internal Name (e.g., NEW_DOCS, A-Z_0-9):"), gbcDialog);
-        gbcDialog.gridx = 1; gbcDialog.gridy = 0;
-        panel.add(internalNameField, gbcDialog);
+        gbc.gridx = 0; gbc.gridy = 0; panel.add(new JLabel("Internal Name (NO SPACES, e.g., NEW_APP):"), gbc);
+        gbc.gridx = 1; gbc.gridy = 0; panel.add(internalNameField, gbc);
+        gbc.gridx = 0; gbc.gridy = 1; panel.add(new JLabel("Display Name (e.g., New Application):"), gbc);
+        gbc.gridx = 1; gbc.gridy = 1; panel.add(displayNameField, gbc);
 
-        gbcDialog.gridx = 0; gbcDialog.gridy = 1;
-        panel.add(new JLabel("Display Name (e.g., New Documents):"), gbcDialog);
-        gbcDialog.gridx = 1; gbcDialog.gridy = 1;
-        panel.add(displayNameField, gbcDialog);
-
-        UIManager.put("OptionPane.messageFont", UITheme.FONT_GENERAL_REGULAR);
-        UIManager.put("OptionPane.buttonFont", UITheme.FONT_BUTTON);
-        int result = JOptionPane.showConfirmDialog(this, panel, "Add New Service Type",
-                JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+        int result = JOptionPane.showConfirmDialog(this, panel, "Add New Service Type", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
 
         if (result == JOptionPane.OK_OPTION) {
-            String newServiceName = internalNameField.getText().trim();
-            String newServiceDisplayName = displayNameField.getText().trim();
+            String name = internalNameField.getText().trim().toUpperCase();
+            String displayName = displayNameField.getText().trim();
 
-            if (newServiceName.isEmpty() || newServiceDisplayName.isEmpty()) {
-                JOptionPane.showMessageDialog(this, "Both internal name and display name are required.", "Input Error", JOptionPane.ERROR_MESSAGE);
+            if (name.isEmpty() || displayName.isEmpty() || name.contains(" ")) {
+                JOptionPane.showMessageDialog(this, "Names cannot be empty. Internal name cannot contain spaces.", "Input Error", JOptionPane.ERROR_MESSAGE);
                 return;
             }
-            if (!newServiceName.matches("[A-Z_0-9]+")) {
-                JOptionPane.showMessageDialog(this, "Internal name must be uppercase letters, numbers, and underscores only.", "Invalid Name Format", JOptionPane.ERROR_MESSAGE);
+            
+            if (dbManager.findServiceTypeByName(name).isPresent()) {
+                JOptionPane.showMessageDialog(this, "A service with the internal name '" + name + "' already exists.", "Duplicate Service Name", JOptionPane.WARNING_MESSAGE);
                 return;
             }
 
-            try {
-                String internalNameUpper = newServiceName.toUpperCase();
-                boolean exists = dbManager.getAllServiceTypes().stream()
-                                    .anyMatch(st -> st.name().equalsIgnoreCase(internalNameUpper));
-                if (exists) {
-                    JOptionPane.showMessageDialog(this, "A service with the internal name '" + internalNameUpper + "' already exists.", "Duplicate Service Name", JOptionPane.WARNING_MESSAGE);
-                    return;
-                }
-
-                dbManager.addServiceType(internalNameUpper, newServiceDisplayName);
-                loadServiceTypesForAdminList();
-                queueManager.onQueueUpdated(); // Notify all listeners including AgentPanel, CustomerPanel etc.
-                JOptionPane.showMessageDialog(this, "Service type '" + newServiceDisplayName + "' added successfully.", "Service Added", JOptionPane.INFORMATION_MESSAGE);
-            } catch (Exception ex) {
-                JOptionPane.showMessageDialog(this, "Error adding service: " + ex.getMessage(), "Database Error", JOptionPane.ERROR_MESSAGE);
-                ex.printStackTrace();
-            }
+            dbManager.addServiceType(name, displayName);
+            queueManager.servicesConfigurationChanged();
         }
     }
 
     private void editServiceTypeAction(ActionEvent e) {
-        ServiceType selectedService = serviceTypeList.getSelectedValue();
-        if (selectedService == null) {
-            JOptionPane.showMessageDialog(this, "Please select a service to edit.", "No Service Selected", JOptionPane.WARNING_MESSAGE);
-            return;
-        }
+        ServiceType selected = serviceTypeList.getSelectedValue();
+        if (selected == null) return;
 
-        JTextField displayNameField = new JTextField(selectedService.getDisplayName(), 20);
-        displayNameField.setFont(UITheme.FONT_INPUT);
-        JPanel panel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        panel.add(new JLabel("New Display Name for " + selectedService.name() + ":"));
-        panel.add(displayNameField);
+        String newDisplayName = JOptionPane.showInputDialog(this, "Enter new display name for " + selected.getName() + ":", selected.getDisplayName());
 
-        UIManager.put("OptionPane.messageFont", UITheme.FONT_GENERAL_REGULAR);
-        UIManager.put("OptionPane.buttonFont", UITheme.FONT_BUTTON);
-        int result = JOptionPane.showConfirmDialog(this, panel, "Edit Service Display Name",
-                                                JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
-
-        if (result == JOptionPane.OK_OPTION) {
-            String newDisplayName = displayNameField.getText().trim();
-            if (!newDisplayName.isEmpty() && !newDisplayName.equals(selectedService.getDisplayName())) {
-                if (dbManager.updateServiceTypeDisplayName(selectedService.name(), newDisplayName)) {
-                    loadServiceTypesForAdminList();
-                    queueManager.onQueueUpdated(); // Notify all listeners
-                    JOptionPane.showMessageDialog(this, "Display name for '" + selectedService.name() + "' updated successfully.", "Service Updated", JOptionPane.INFORMATION_MESSAGE);
-                } else {
-                    JOptionPane.showMessageDialog(this, "Failed to update display name for '" + selectedService.name() + "'.", "Update Failed", JOptionPane.ERROR_MESSAGE);
-                }
-            } else if (newDisplayName.isEmpty()){
-                JOptionPane.showMessageDialog(this, "Display name cannot be empty.", "Input Error", JOptionPane.ERROR_MESSAGE);
-            }
+        if (newDisplayName != null && !newDisplayName.trim().isEmpty()) {
+            dbManager.updateServiceTypeDisplayName(selected.getName(), newDisplayName.trim());
+            queueManager.servicesConfigurationChanged();
         }
     }
 
     private void removeServiceTypeAction(ActionEvent e) {
-        ServiceType selectedService = serviceTypeList.getSelectedValue();
-        if (selectedService == null) {
-            JOptionPane.showMessageDialog(this, "Please select a service to remove.", "No Service Selected", JOptionPane.WARNING_MESSAGE);
-            return;
-        }
+        ServiceType selected = serviceTypeList.getSelectedValue();
+        if (selected == null) return;
 
-        UIManager.put("OptionPane.messageFont", UITheme.FONT_GENERAL_REGULAR);
-        UIManager.put("OptionPane.buttonFont", UITheme.FONT_BUTTON);
         int confirm = JOptionPane.showConfirmDialog(this,
-            "<html>Are you sure you want to <b>PERMANENTLY REMOVE</b> the service:<br>'" +
-            selectedService.getDisplayName() + "' (Internal: " + selectedService.name() + ")?<br><br>" +
-            "<b>This action cannot be undone.</b><br>" +
-            "This will fail if the service is currently associated with any tickets.</html>",
-            "Confirm Permanent Removal",
-            JOptionPane.YES_NO_OPTION,
-            JOptionPane.WARNING_MESSAGE);
+            "Are you sure you want to PERMANENTLY REMOVE the service:\n'" + selected.getDisplayName() + "'?",
+            "Confirm Removal", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
 
         if (confirm == JOptionPane.YES_OPTION) {
-            if (dbManager.removeServiceType(selectedService.name())) {
-                loadServiceTypesForAdminList();
-                queueManager.onQueueUpdated(); // Notify all listeners
-                JOptionPane.showMessageDialog(this, "Service '" + selectedService.getDisplayName() + "' removed successfully.", "Service Removed", JOptionPane.INFORMATION_MESSAGE);
+            if (!dbManager.removeServiceType(selected.getName())) {
+                JOptionPane.showMessageDialog(this, "Failed to remove service. It might be in use by existing tickets.", "Removal Failed", JOptionPane.ERROR_MESSAGE);
             } else {
-                JOptionPane.showMessageDialog(this, "Failed to remove service '" + selectedService.getDisplayName() + "'. It might be in use by existing tickets or another error occurred.", "Removal Failed", JOptionPane.ERROR_MESSAGE);
+                queueManager.servicesConfigurationChanged();
             }
         }
     }
 
     private void changeSelectedTicketPriority(ActionEvent e) {
-        int selectedRow = ticketsTable.getSelectedRow();
-        if (selectedRow == -1) {
-            JOptionPane.showMessageDialog(this, "Please select a ticket from the table first.", "No Ticket Selected", JOptionPane.WARNING_MESSAGE);
-            return;
-        }
-        int modelRow = ticketsTable.convertRowIndexToModel(selectedRow);
-        String ticketNumber = ticketsTableModel.getValueAt(modelRow, 0).toString();
-        String currentStatusStr = ticketsTableModel.getValueAt(modelRow, 8).toString(); // Status column
+        int selectedRow = ticketsTable.convertRowIndexToModel(ticketsTable.getSelectedRow());
+        if (selectedRow == -1) return;
+        
+        String ticketNumber = ticketsTableModel.getValueAt(selectedRow, 0).toString();
 
-        if (!Ticket.TicketStatus.WAITING.name().equals(currentStatusStr)) {
-             JOptionPane.showMessageDialog(this, "Priority can only be changed for tickets that are currently WAITING.", "Invalid Ticket Status", JOptionPane.WARNING_MESSAGE);
-            return;
-        }
-
-        // Get current priority reason to pre-select in dialog
-        Ticket.PriorityReason currentReason = Ticket.PriorityReason.NONE; // Default
-        String currentReasonStr = ticketsTableModel.getValueAt(modelRow, 3).toString();
-        for (Ticket.PriorityReason reason : Ticket.PriorityReason.values()) {
-            if (reason.getDisplayName().equals(currentReasonStr)) {
-                currentReason = reason;
-                break;
-            }
-        }
-
-        JComboBox<Ticket.PriorityReason> priorityComboBox = new JComboBox<>(Ticket.PriorityReason.values());
-        priorityComboBox.setSelectedItem(currentReason);
-        priorityComboBox.setFont(UITheme.FONT_INPUT);
-
-        UIManager.put("OptionPane.messageFont", UITheme.FONT_GENERAL_REGULAR);
-        UIManager.put("OptionPane.buttonFont", UITheme.FONT_BUTTON);
-        int result = JOptionPane.showConfirmDialog(this, priorityComboBox, "Set Priority for Ticket: " + ticketNumber,
-                JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
-
-        if (result == JOptionPane.OK_OPTION) {
-            Ticket.PriorityReason newReason = (Ticket.PriorityReason) priorityComboBox.getSelectedItem();
-            if (queueManager.updateTicketPriority(ticketNumber, newReason)) {
-                JOptionPane.showMessageDialog(this, "Priority for ticket " + ticketNumber + " updated to: " + newReason.getDisplayName(), "Priority Updated", JOptionPane.INFORMATION_MESSAGE);
-                loadTickets(); // Refresh the tickets table
-                queueManager.onQueueUpdated(); // Notify other listeners (like AgentPanel)
-            } else {
-                JOptionPane.showMessageDialog(this, "Failed to update priority for ticket " + ticketNumber + ".", "Update Failed", JOptionPane.ERROR_MESSAGE);
-            }
+        Ticket.PriorityReason newReason = (Ticket.PriorityReason) JOptionPane.showInputDialog(
+            this, "Set Priority for Ticket: " + ticketNumber, "Update Priority",
+            JOptionPane.PLAIN_MESSAGE, null,
+            Ticket.PriorityReason.values(), Ticket.PriorityReason.NONE);
+            
+        if (newReason != null) {
+            queueManager.updateTicketPriority(ticketNumber, newReason);
         }
     }
 
@@ -433,64 +266,28 @@ public class AdminPanel extends JPanel implements QueueManager.QueueUpdateListen
 
     private void loadServiceTypesForAdminList() {
         serviceListModel.clear();
-        List<ServiceType> typesFromDb = dbManager.getAllServiceTypes();
-        // If DB is empty (e.g. first run), populate from Enum as a fallback or initial set.
-        // However, typically, services should be managed purely via DB after initial setup.
-        // This logic might need refinement based on desired behavior for an empty DB.
-        if (typesFromDb.isEmpty() && ServiceType.values().length > 0 && dbManager.isSchemaJustCreated()) { // Condition for initial population
-            System.out.println("AdminPanel: No service types in DB, populating from Enum (initial setup).");
-            for (ServiceType type : ServiceType.getInitialServiceTypes()) { // Assuming a method to get only initial/default types
-                serviceListModel.addElement(type);
-                // Optionally, add them to DB here if they aren't already during schema creation
-                // dbManager.addServiceType(type.name(), type.getDisplayName()); // Be careful about duplicates
-            }
-        } else {
-            for (ServiceType type : typesFromDb) {
-                serviceListModel.addElement(type);
-            }
-        }
+        dbManager.getAllServiceTypes().forEach(serviceListModel::addElement);
     }
 
     private void loadTickets() {
         ticketsTableModel.setRowCount(0);
-        List<Ticket> tickets = dbManager.getAllTickets();
+        List<Ticket> tickets = dbManager.getAllTicketsWithResolvedServiceTypes();
         for (Ticket t : tickets) {
             Vector<Object> row = new Vector<>();
             row.add(t.getTicketNumber());
             row.add(t.getServiceType().getDisplayName());
             row.add(t.getCustomerName());
-            row.add(t.getPriorityReason().getDisplayName()); // Display priority reason
+            row.add(t.getPriorityReason().getDisplayName());
             row.add(t.getFormattedIssueTime());
-            row.add(t.getCallTime() != null ? t.getFormattedTime(t.getCallTime()) : "---");
-            row.add(t.getServiceStartTime() != null ? t.getFormattedTime(t.getServiceStartTime()) : "---");
-            row.add(t.getServiceEndTime() != null ? t.getFormattedTime(t.getServiceEndTime()) : "---");
             row.add(t.getStatus());
             row.add(t.getAgentUsername() != null ? t.getAgentUsername() : "---");
-            row.add(t.getPriority()); // Numerical priority
             ticketsTableModel.addRow(row);
         }
     }
-
-    @SuppressWarnings("unchecked")
-    private void filterTicketsTable(ActionEvent e) {
-        String searchText = ticketSearchField.getText().trim();
-        TableRowSorter<DefaultTableModel> sorter = (TableRowSorter<DefaultTableModel>) ticketsTable.getRowSorter();
-        if (searchText.length() == 0) {
-            sorter.setRowFilter(null);
-        } else {
-            try {
-                sorter.setRowFilter(RowFilter.regexFilter("(?i)" + Pattern.quote(searchText)));
-            } catch (java.util.regex.PatternSyntaxException pse) {
-                System.err.println("Invalid regex pattern in ticket search: " + pse.getMessage());
-                sorter.setRowFilter(null); // Clear filter on error
-            }
-        }
-    }
-
+    
     private void loadFeedback() {
         feedbackTableModel.setRowCount(0);
-        List<Feedback> feedbackList = dbManager.getAllFeedback();
-        for (Feedback f : feedbackList) {
+        dbManager.getAllFeedback().forEach(f -> {
             Vector<Object> row = new Vector<>();
             row.add(f.getId());
             row.add(f.getTicketNumber());
@@ -498,110 +295,96 @@ public class AdminPanel extends JPanel implements QueueManager.QueueUpdateListen
             row.add(f.getComments());
             row.add(f.getFormattedSubmissionTime());
             feedbackTableModel.addRow(row);
-        }
+        });
+    }
+    
+    private void filterTicketsTable(ActionEvent e) {
+        filterTable(ticketsTable, ticketSearchField.getText());
+    }
+    
+    private void filterFeedbackTable(ActionEvent e) {
+        filterTable(feedbackTable, feedbackSearchField.getText());
     }
 
-    @SuppressWarnings("unchecked")
-    private void filterFeedbackTable(ActionEvent e) {
-        String searchText = feedbackSearchField.getText().trim();
-        TableRowSorter<DefaultTableModel> sorter = (TableRowSorter<DefaultTableModel>) feedbackTable.getRowSorter();
-        if (searchText.length() == 0) {
+    private void filterTable(JTable table, String text) {
+        TableRowSorter<?> sorter = (TableRowSorter<?>) table.getRowSorter();
+        if (text.trim().length() == 0) {
             sorter.setRowFilter(null);
         } else {
-             try {
-                sorter.setRowFilter(RowFilter.regexFilter("(?i)" + Pattern.quote(searchText)));
-            } catch (java.util.regex.PatternSyntaxException pse) {
-                System.err.println("Invalid regex pattern in feedback search: " + pse.getMessage());
-                sorter.setRowFilter(null); // Clear filter on error
-            }
+            sorter.setRowFilter(RowFilter.regexFilter("(?i)" + Pattern.quote(text.trim())));
         }
+    }
+    
+    private void updateTicketButtonState() {
+        if (ticketsTable.getSelectedRow() == -1) {
+            changeTicketPriorityButton.setEnabled(false);
+            return;
+        }
+        int modelRow = ticketsTable.convertRowIndexToModel(ticketsTable.getSelectedRow());
+        String status = ticketsTableModel.getValueAt(modelRow, 5).toString();
+        changeTicketPriorityButton.setEnabled(Ticket.TicketStatus.WAITING.name().equals(status));
+    }
+    
+    private void updateServiceButtonState() {
+        boolean selected = serviceTypeList.getSelectedIndex() != -1;
+        editServiceButton.setEnabled(selected);
+        removeServiceButton.setEnabled(selected);
+    }
+
+    private void setupTableStyles(JTable table) {
+        table.setFillsViewportHeight(true);
+        table.setAutoCreateRowSorter(true);
+        table.getTableHeader().setFont(UITheme.FONT_TABLE_HEADER);
+        table.getTableHeader().setBackground(UITheme.COLOR_PRIMARY_STEEL_BLUE);
+        table.getTableHeader().setForeground(UITheme.COLOR_TEXT_ON_PRIMARY);
+        table.setFont(UITheme.FONT_TABLE_CELL);
+        table.setRowHeight(28);
+        table.setGridColor(UITheme.COLOR_BORDER);
+        table.setShowVerticalLines(false);
+        table.setIntercellSpacing(new Dimension(0, 1));
+        table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
     }
 
     @Override
     public void onQueueUpdated() {
-         SwingUtilities.invokeLater(() -> {
-            // Save current selection in tickets table if any
-            int selectedTicketRow = ticketsTable.getSelectedRow();
-            String selectedTicketNumber = null;
-            if (selectedTicketRow != -1) {
-                selectedTicketNumber = ticketsTable.getValueAt(selectedTicketRow, ticketsTable.convertColumnIndexToView(0)).toString();
-            }
-
-            loadTickets(); // Reload all tickets
-            loadServiceTypesForAdminList(); // Reload service types
-
-            // Try to reselect the previously selected ticket
-            if (selectedTicketNumber != null) {
-                for (int i = 0; i < ticketsTable.getRowCount(); i++) {
-                    if (ticketsTable.getValueAt(i, ticketsTable.convertColumnIndexToView(0)).toString().equals(selectedTicketNumber)) {
-                        ticketsTable.setRowSelectionInterval(i, i);
-                        break;
-                    }
-                }
-            }
-            // Note: Feedback is not directly affected by queue updates, so not reloading it here unless necessary.
-        });
+         SwingUtilities.invokeLater(this::loadAllData);
     }
 
-    // Custom cell renderer for JList to show ServiceType display name and internal name
     private static class ServiceTypeListCellRenderer extends DefaultListCellRenderer {
         @Override
         public Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
             super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
             if (value instanceof ServiceType) {
-                ServiceType serviceType = (ServiceType) value;
-                // Using UITheme HEX methods for HTML styling
-                setText("<html><body style='width: 200px; padding: 3px 0px;'><b style='color:" + UITheme.COLOR_PRIMARY_NAVY_HEX() + ";'>" +
-                        serviceType.getDisplayName() +
-                        "</b> <font color='" + UITheme.COLOR_TEXT_LIGHT_HEX() + "'>(" + serviceType.name() + ")</font></body></html>");
-                setIcon(UITheme.getIcon("service_item_list.svg")); // Ensure icon exists
+                ServiceType st = (ServiceType) value;
+                setText("<html><body style='padding: 3px 0px;'><b style='color:" + UITheme.COLOR_PRIMARY_NAVY_HEX() + ";'>" +
+                        st.getDisplayName() +
+                        "</b> <font color='" + UITheme.COLOR_TEXT_LIGHT_HEX() + "'>(" + st.getName() + ")</font></body></html>");
+                setIcon(UITheme.getIcon("service_item_list.svg"));
             }
-            setFont(UITheme.FONT_LIST_ITEM);
-            setBorder(new EmptyBorder(6,8,6,8)); // Padding for each item
-            if (isSelected) {
-                setBackground(UITheme.COLOR_PRIMARY_LIGHT_SKY); // Use a theme color for selection
-                setForeground(UITheme.COLOR_PRIMARY_NAVY); // Contrasting text for selection
-            } else {
-                setBackground(UITheme.COLOR_BACKGROUND_SECTION); // Default item background
-                setForeground(UITheme.COLOR_TEXT_DARK); // Default item text color
-            }
+            setBorder(new EmptyBorder(6,8,6,8));
             return this;
         }
     }
 
-    // Custom cell renderer for JTable to allow multi-line text in cells (e.g., feedback comments)
     private static class TextAreaCellRenderer extends JTextArea implements TableCellRenderer {
         public TextAreaCellRenderer() {
             setLineWrap(true);
             setWrapStyleWord(true);
             setOpaque(true);
-            setBorder(new EmptyBorder(5, 5, 5, 5)); // Padding within the cell
-            setFont(UITheme.FONT_TABLE_CELL); // Use consistent table cell font
+            setBorder(new EmptyBorder(5, 5, 5, 5));
+            setFont(UITheme.FONT_TABLE_CELL);
         }
 
         @Override
-        public Component getTableCellRendererComponent(JTable table, Object value,
-                                                       boolean isSelected, boolean hasFocus,
-                                                       int row, int column) {
+        public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
             setText((value == null) ? "" : value.toString());
-
-            // Handle selection and striping colors
             if (isSelected) {
                 setBackground(table.getSelectionBackground());
                 setForeground(table.getSelectionForeground());
             } else {
-                // Apply striping if enabled in UIManager
-                if (UIManager.getBoolean("Table.striped") && row % 2 == 1) {
-                    setBackground(UIManager.getColor("Table.alternateRowColor"));
-                } else {
-                    setBackground(table.getBackground());
-                }
+                setBackground(row % 2 == 0 ? table.getBackground() : UIManager.getColor("Table.alternateRowColor"));
                 setForeground(table.getForeground());
             }
-            // Adjust height of row to fit content - This is tricky with JTable's default row height.
-            // For dynamic row heights based on content, more complex logic or custom TableUI might be needed.
-            // A simpler approach is to set a taller fixed row height if comments are often long.
-            // table.setRowHeight(row, getPreferredSize().height); // This can be problematic and slow.
             return this;
         }
     }

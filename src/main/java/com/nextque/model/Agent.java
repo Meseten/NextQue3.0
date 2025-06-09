@@ -1,23 +1,19 @@
-// Filename: Agent.java
 package com.nextque.model;
 
 import java.util.Set;
+import java.util.HashSet;
 
-/**
- * Represents an agent/staff member.
- * Placeholder for features like skill-based routing.
- */
 public class Agent {
     private String agentId;
     private String agentName;
-    private Set<ServiceType> skills; // Services the agent can handle
+    private Set<ServiceType> skills;
     private boolean isAvailable;
 
     public Agent(String agentId, String agentName) {
         this.agentId = agentId;
         this.agentName = agentName;
         this.isAvailable = true;
-        this.skills = new java.util.HashSet<>();
+        this.skills = new HashSet<>();
     }
 
     public String getAgentId() {

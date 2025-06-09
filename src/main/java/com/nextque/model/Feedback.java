@@ -1,17 +1,15 @@
-// Filename: Feedback.java
 package com.nextque.model;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
 public class Feedback {
-    private int id; // From database
+    private int id; 
     private String ticketNumber;
-    private int rating; // e.g., 1-5
+    private int rating;
     private String comments;
     private LocalDateTime submissionTime;
 
-    // Constructor for new feedback
     public Feedback(String ticketNumber, int rating, String comments) {
         this.ticketNumber = ticketNumber;
         this.rating = rating;
@@ -28,7 +26,6 @@ public class Feedback {
         this.submissionTime = submissionTime;
     }
     
-    // Getters
     public int getId() { return id; }
     public String getTicketNumber() { return ticketNumber; }
     public int getRating() { return rating; }

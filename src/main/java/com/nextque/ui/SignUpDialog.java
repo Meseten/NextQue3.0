@@ -1,4 +1,3 @@
-// Filename: SignUpDialog.java
 package com.nextque.ui;
 
 import com.nextque.auth.AuthService;
@@ -53,22 +52,17 @@ public class SignUpDialog extends JDialog {
         UITheme.stylePrimaryButton(signUpButton);
 
         cancelButton = new JButton("Cancel");
-        cancelButton.setFont(UITheme.FONT_BUTTON); // Standard button font
+        cancelButton.setFont(UITheme.FONT_BUTTON);
         cancelButton.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        // For a less prominent cancel button, consider:
-        // cancelButton.putClientProperty(com.formdev.flatlaf.FlatClientProperties.BUTTON_TYPE, com.formdev.flatlaf.FlatClientProperties.BUTTON_TYPE_BORDERLESS);
-        // cancelButton.setForeground(UITheme.COLOR_TEXT_LIGHT);
-
 
         signUpButton.addActionListener(this::performSignUp);
-        confirmPasswordField.addActionListener(this::performSignUp); // Allow sign up on Enter in confirm password field
+        confirmPasswordField.addActionListener(this::performSignUp);
 
         cancelButton.addActionListener(e -> {
             signedUpSuccessfully = false;
             dispose();
         });
 
-        // Close dialog on Escape key
         getRootPane().registerKeyboardAction(e -> dispose(),
                 KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0),
                 JComponent.WHEN_IN_FOCUSED_WINDOW);
@@ -102,7 +96,6 @@ public class SignUpDialog extends JDialog {
         }
 
         String password = new String(passwordChars);
-        // By default, new sign-ups are 'CUSTOMER'. Admin/Agent roles would be set manually or via a different process.
         User newUser = new User(username, password, UserRole.CUSTOMER, fullName);
 
         if (authService.isUsernameTaken(username)) {
@@ -118,34 +111,33 @@ public class SignUpDialog extends JDialog {
                     "Account created successfully for " + fullName + "!\nYou can now log in with username: " + username,
                     "Signup Successful",
                     JOptionPane.INFORMATION_MESSAGE);
-            dispose(); // Close the sign-up dialog
+            dispose();
         } else {
             JOptionPane.showMessageDialog(this, "Signup failed due to an unexpected error. Please try again later.", "Error", JOptionPane.ERROR_MESSAGE);
         }
 
-        // Securely clear password arrays
         Arrays.fill(passwordChars, '0');
         Arrays.fill(confirmPasswordChars, '0');
     }
 
     private void layoutComponents() {
-        JPanel mainPanel = new JPanel(new BorderLayout(15,15)); // Gaps between sections
-        mainPanel.setBorder(new EmptyBorder(25, 35, 25, 35)); // Padding for the dialog content
+        JPanel mainPanel = new JPanel(new BorderLayout(15,15));
+        mainPanel.setBorder(new EmptyBorder(25, 35, 25, 35));
         mainPanel.setBackground(UITheme.COLOR_BACKGROUND_MAIN);
 
         JLabel titleLabel = new JLabel("Register for NextQue", SwingConstants.CENTER);
         titleLabel.setFont(UITheme.FONT_TITLE_H2);
-        titleLabel.setForeground(UITheme.COLOR_PRIMARY_NAVY); // Corrected from COLOR_PRIMARY_DARK
-        titleLabel.setIcon(UITheme.getIcon("signup_user_add.svg", 32, 32)); // Ensure icon exists
+        titleLabel.setForeground(UITheme.COLOR_PRIMARY_NAVY);
+        titleLabel.setIcon(UITheme.getIcon("signup_user_add.svg", 32, 32));
         titleLabel.setIconTextGap(10);
         mainPanel.add(titleLabel, BorderLayout.NORTH);
 
         JPanel fieldsPanel = new JPanel(new GridBagLayout());
-        fieldsPanel.setOpaque(false); // Transparent background
+        fieldsPanel.setOpaque(false);
         GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(10, 5, 10, 5); // Increased vertical spacing between rows
+        gbc.insets = new Insets(10, 5, 10, 5);
         gbc.fill = GridBagConstraints.HORIZONTAL;
-        gbc.weightx = 1.0; // Allow fields to expand
+        gbc.weightx = 1.0;
 
         String[] labels = {"Full Name:", "Username:", "Password:", "Confirm Password:"};
         JTextField[] textFields = {fullNameField, usernameField, passwordField, confirmPasswordField};
@@ -153,7 +145,7 @@ public class SignUpDialog extends JDialog {
         for (int i = 0; i < labels.length; i++) {
             JLabel label = new JLabel(labels[i]);
             label.setFont(UITheme.FONT_LABEL);
-            gbc.gridx = 0; gbc.gridy = i; gbc.weightx = 0.3; gbc.anchor = GridBagConstraints.LINE_END; // Align labels to the right
+            gbc.gridx = 0; gbc.gridy = i; gbc.weightx = 0.3; gbc.anchor = GridBagConstraints.LINE_END;
             fieldsPanel.add(label, gbc);
 
             gbc.gridx = 1; gbc.gridy = i; gbc.weightx = 0.7; gbc.anchor = GridBagConstraints.LINE_START;
@@ -162,10 +154,10 @@ public class SignUpDialog extends JDialog {
 
         mainPanel.add(fieldsPanel, BorderLayout.CENTER);
 
-        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0)); // Align buttons to the right
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
         buttonPanel.setOpaque(false);
         buttonPanel.add(cancelButton);
-        buttonPanel.add(signUpButton); // Primary action
+        buttonPanel.add(signUpButton);
         mainPanel.add(buttonPanel, BorderLayout.SOUTH);
 
         setContentPane(mainPanel);

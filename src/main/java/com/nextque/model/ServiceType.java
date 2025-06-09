@@ -1,40 +1,39 @@
-// Filename: ServiceType.java
 package com.nextque.model;
 
-/**
- * Enum representing different types of government services.
- * These can also be managed in the database for more dynamic configuration.
- */
-public enum ServiceType {
-    NEW_APPLICATION("New Application"),
-    RENEWAL("Renewal"),
-    PAYMENT("Payment"),
-    INQUIRY("Inquiry"),
-    CLAIMS("Claims"),
-    PERMITS("Permits"),
-    COMPLAINTS("Complaints"), // Added new type
-    INFORMATION("Information Desk"); // Added new type
+import java.util.Objects;
 
-    public static Iterable<ServiceType> getInitialServiceTypes() {
-        throw new UnsupportedOperationException("Not supported yet."); // Generated from nbfs://nbhost/SystemFileSystem/Templates/Classes/Code/GeneratedMethodBody
+public final class ServiceType {
+    private final String name;
+    private final String displayName;
+
+    public ServiceType(String name, String displayName) {
+        this.name = name;
+        this.displayName = displayName;
     }
 
-
-    private final String displayName;
-    // private final String name; // Enum 'name()' method provides the internal name
-
-    ServiceType(String displayName) {
-        this.displayName = displayName;
+    public String getName() {
+        return name;
     }
 
     public String getDisplayName() {
         return displayName;
     }
-    
-    // public String getName() { return name(); } // Default enum method
 
     @Override
     public String toString() {
         return displayName;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) return true;
+        if (obj == null || getClass() != obj.getClass()) return false;
+        ServiceType that = (ServiceType) obj;
+        return Objects.equals(name, that.name);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(name);
     }
 }

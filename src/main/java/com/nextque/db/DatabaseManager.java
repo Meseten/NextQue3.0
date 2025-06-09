@@ -111,10 +111,13 @@ public class DatabaseManager {
         try (Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery(sqlCheck)) {
             if (rs.next() && rs.getInt("count") == 0) {
-                addServiceType(conn, "NEW_APP", "New Application");
-                addServiceType(conn, "RENEWAL", "Renewal");
-                addServiceType(conn, "PAYMENT", "Payment");
-                addServiceType(conn, "INQUIRY", "Inquiry");
+                addServiceType(conn, "BUS_PERMIT_NEW", "Business Permit - New");
+                addServiceType(conn, "BUS_PERMIT_REN", "Business Permit - Renewal");
+                addServiceType(conn, "RPT_PAYMENT", "Real Property Tax (Amilyar)");
+                addServiceType(conn, "CEDULA", "Community Tax Certificate (Cedula)");
+                addServiceType(conn, "CIVIL_REG", "Civil Registry (Birth, Marriage, etc.)");
+                addServiceType(conn, "SWD_ASSIST", "Social Welfare (SC/PWD Assistance)");
+                addServiceType(conn, "INQUIRY", "General Inquiry");
             }
         } catch (SQLException e) {
             throw e;
